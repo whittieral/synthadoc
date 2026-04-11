@@ -237,3 +237,65 @@ def test_tier3_resource_loaded_lazily(tmp_path):
     # second call uses cache — file can be deleted
     (resources_dir / "prompt.md").unlink()
     assert skill.get_resource("prompt.md") == "# Vision prompt"
+
+
+def test_triggers_dataclass():
+    from synthadoc.skills.base import Triggers
+    t = Triggers(extensions=[".pdf"], intents=["research paper"])
+    assert ".pdf" in t.extensions
+    assert "research paper" in t.intents
+
+
+def test_skillmeta_with_triggers():
+    from synthadoc.skills.base import SkillMeta, Triggers
+    m = SkillMeta(
+        name="pdf", version="1.0", description="PDF skill",
+        entry_script="scripts/main.py", entry_class="PdfSkill",
+        triggers=Triggers(extensions=[".pdf"], intents=["document"]),
+        requires=["pypdf"],
+    )
+    assert m.triggers.extensions == [".pdf"]
+    assert m.version == "1.0"
+
+
+def test_skillmeta_backwards_compat_extensions():
+    """Old-style SkillMeta(extensions=[...]) still works without triggers."""
+    from synthadoc.skills.base import SkillMeta
+    m = SkillMeta(name="old", description="old skill", extensions=[".old"])
+    assert ".old" in m.triggers.extensions
+
+
+def test_get_resource_searches_assets_then_references(tmp_path):
+    from synthadoc.skills.base import BaseSkill, ExtractedContent, SkillMeta
+
+    (tmp_path / "assets").mkdir()
+    (tmp_path / "assets" / "config.json").write_text('{"key": "val"}', encoding="utf-8")
+    (tmp_path / "references").mkdir()
+    (tmp_path / "references" / "notes.md").write_text("# Notes", encoding="utf-8")
+
+    class TestSkill(BaseSkill):
+        meta = SkillMeta(name="t", description="t", extensions=[".t"])
+        async def extract(self, source): return ExtractedContent("", source, {})
+
+    skill = TestSkill()
+    skill.skill_dir = tmp_path
+    assert '{"key": "val"}' in skill.get_resource("config.json")
+    assert "# Notes" in skill.get_resource("notes.md")
+
+
+def test_get_resource_cache_avoids_second_read(tmp_path):
+    from synthadoc.skills.base import BaseSkill, ExtractedContent, SkillMeta
+
+    (tmp_path / "assets").mkdir()
+    f = tmp_path / "assets" / "data.txt"
+    f.write_text("original", encoding="utf-8")
+
+    class TestSkill(BaseSkill):
+        meta = SkillMeta(name="t2", description="t2", extensions=[".t2"])
+        async def extract(self, source): return ExtractedContent("", source, {})
+
+    skill = TestSkill()
+    skill.skill_dir = tmp_path
+    skill.get_resource("data.txt")
+    f.write_text("modified", encoding="utf-8")
+    assert skill.get_resource("data.txt") == "original"  # served from cache
