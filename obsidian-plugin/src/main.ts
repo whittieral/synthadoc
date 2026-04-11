@@ -410,6 +410,10 @@ class QueryModal extends Modal {
         // Scale with viewport: min 520px, 60% of screen width, max 860px
         this.modalEl.style.width = "clamp(520px, 60vw, 860px)";
 
+        // Block the backdrop's built-in click-to-close so the user must close explicitly
+        const bg = this.containerEl.querySelector(".modal-bg") as HTMLElement | null;
+        if (bg) bg.addEventListener("click", (e) => e.stopImmediatePropagation(), { capture: true });
+
         const { contentEl } = this;
         contentEl.createEl("h3", { text: "Synthadoc: Query your wiki" });
 
