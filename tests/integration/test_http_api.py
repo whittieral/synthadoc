@@ -30,27 +30,38 @@ def test_query_endpoint(tmp_wiki):
 
 
 def test_ingest_endpoint_returns_job_id(tmp_wiki):
+    """POST /jobs/ingest enqueues a job and returns its ID."""
     from synthadoc.integration.http_server import create_app
     app = create_app(wiki_root=tmp_wiki)
-    with patch("synthadoc.core.orchestrator.Orchestrator.ingest",
+    # The endpoint calls queue.enqueue(), not orch.ingest() directly
+    with patch("synthadoc.core.queue.JobQueue.enqueue",
                new=AsyncMock(return_value="job-abc")):
         with TestClient(app) as client:
-            resp = client.post("/ingest", json={"source": "paper.pdf"})
+            resp = client.post("/jobs/ingest", json={"source": "paper.pdf"})
     assert resp.status_code == 200
     assert resp.json()["job_id"] == "job-abc"
 
 
-def test_lint_endpoint_returns_report(tmp_wiki):
+def test_lint_report_shows_contradictions_and_orphans(tmp_wiki):
+    """GET /lint/report reads wiki files and returns contradicted pages and orphans."""
+    wiki_dir = tmp_wiki / "wiki"
+    # A page marked contradicted in its frontmatter
+    (wiki_dir / "conflicted-page.md").write_text(
+        "---\nstatus: contradicted\n---\n# Conflicted Page\n",
+        encoding="utf-8",
+    )
+    # An orphan page — no other page links to it
+    (wiki_dir / "orphan-page.md").write_text(
+        "---\nstatus: active\ntags: [test]\n---\n# Orphan Page\n",
+        encoding="utf-8",
+    )
     from synthadoc.integration.http_server import create_app
-    from synthadoc.agents.lint_agent import LintReport
-    app = create_app(wiki_root=tmp_wiki)
-    mock_report = LintReport(contradictions_found=1, orphan_slugs=["stale-page"])
-    with patch("synthadoc.core.orchestrator.Orchestrator.lint",
-               new=AsyncMock(return_value=mock_report)):
-        with TestClient(app) as client:
-            resp = client.post("/lint", params={"scope": "contradictions"})
+    with TestClient(create_app(wiki_root=tmp_wiki)) as client:
+        resp = client.get("/lint/report")
     assert resp.status_code == 200
-    assert resp.json()["contradictions_found"] == 1
+    data = resp.json()
+    assert "conflicted-page" in data["contradictions"]
+    assert "orphan-page" in data["orphans"]
 
 
 def test_query_empty_question_returns_422(tmp_wiki):

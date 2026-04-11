@@ -13,74 +13,68 @@ def test_ingest_batch_dir(tmp_path):
     (tmp_path / "a.md").write_text("# A", encoding="utf-8")
     (tmp_path / "b.pdf").write_bytes(b"%PDF-1.4 dummy")
     (tmp_path / "skip.xyz").write_text("ignored")
-    with patch("synthadoc.cli.ingest.Orchestrator") as MockOrch:
-        mock_orch = AsyncMock()
-        mock_orch.ingest = AsyncMock(return_value="job-1")
-        MockOrch.return_value = mock_orch
-        result = runner.invoke(app, ["ingest", "--batch", str(tmp_path), "--yes"])
+    # ingest.py is a thin HTTP client — patch the post() helper it imports
+    with patch("synthadoc.cli.ingest.post", return_value={"job_id": "job-1"}) as mock_post:
+        result = runner.invoke(app, ["ingest", "--batch", str(tmp_path)])
     assert result.exit_code == 0
-    assert mock_orch.ingest.call_count == 2    # a.md + b.pdf, not skip.xyz
+    assert mock_post.call_count == 2    # a.md + b.pdf, not skip.xyz
 
 
-def test_ingest_resume_replays_pending_jobs(tmp_path):
-    """--resume calls orchestrator.resume() without a source argument."""
-    with patch("synthadoc.cli.ingest.Orchestrator") as MockOrch:
-        mock_orch = AsyncMock()
-        mock_orch.resume = AsyncMock(return_value=2)
-        MockOrch.return_value = mock_orch
-        result = runner.invoke(app, ["ingest", "--resume"])
+def test_ingest_manifest_file(tmp_path):
+    """--file reads a manifest and enqueues each listed path."""
+    doc = tmp_path / "doc.md"
+    doc.write_text("# Doc", encoding="utf-8")
+    manifest = tmp_path / "sources.txt"
+    manifest.write_text(str(doc) + "\n", encoding="utf-8")
+    with patch("synthadoc.cli.ingest.post", return_value={"job_id": "job-1"}) as mock_post:
+        result = runner.invoke(app, ["ingest", "--file", str(manifest)])
     assert result.exit_code == 0
-    mock_orch.resume.assert_called_once()
+    assert mock_post.call_count == 1
 
 
 def test_ingest_force_bypasses_dedup(tmp_path):
-    """--force passes force=True to orchestrator.ingest()."""
+    """--force sets force=True in the HTTP payload sent to the server."""
     source = tmp_path / "doc.md"
     source.write_text("# Doc", encoding="utf-8")
-    with patch("synthadoc.cli.ingest.Orchestrator") as MockOrch:
-        mock_orch = AsyncMock()
-        mock_orch.ingest = AsyncMock(return_value="job-1")
-        MockOrch.return_value = mock_orch
-        result = runner.invoke(app, ["ingest", str(source), "--force", "--yes"])
+    with patch("synthadoc.cli.ingest.post", return_value={"job_id": "job-1"}) as mock_post:
+        result = runner.invoke(app, ["ingest", str(source), "--force"])
     assert result.exit_code == 0
-    _, kwargs = mock_orch.ingest.call_args
-    assert kwargs.get("force") is True
+    # post(wiki, path, payload) — payload is the third positional arg
+    payload = mock_post.call_args[0][2]
+    assert payload.get("force") is True
 
 
 def test_jobs_list_filtered_by_dead_status(tmp_path):
     """jobs list --status dead returns only dead jobs."""
-    with patch("synthadoc.cli.jobs.Orchestrator") as MockOrch:
-        mock_orch = AsyncMock()
-        mock_orch.queue = AsyncMock()
-        mock_orch.queue.list_jobs = AsyncMock(return_value=[
-            MagicMock(id="a1", status="dead", operation="ingest"),
-        ])
-        MockOrch.return_value = mock_orch
+    # jobs_list is an HTTP client — patch the get() helper imported at module level
+    with patch("synthadoc.cli.jobs.get", return_value=[
+        {"id": "a1", "status": "dead", "operation": "ingest", "created_at": None}
+    ]):
         result = runner.invoke(app, ["jobs", "list", "--status", "dead"])
     assert result.exit_code == 0
     assert "a1" in result.output
 
 
 def test_jobs_retry_dead_reenqueues(tmp_path):
-    """jobs retry <id> resets the job to pending."""
-    with patch("synthadoc.cli.jobs.Orchestrator") as MockOrch:
+    """jobs retry <id> resets the job to pending via Orchestrator.queue.retry()."""
+    # jobs_retry uses an inline import from synthadoc.core.orchestrator
+    with patch("synthadoc.core.orchestrator.Orchestrator") as MockOrch:
         mock_orch = AsyncMock()
-        mock_orch.queue = AsyncMock()
         mock_orch.queue.retry = AsyncMock()
         MockOrch.return_value = mock_orch
-        result = runner.invoke(app, ["jobs", "retry", "a1"])
+        result = runner.invoke(app, ["jobs", "retry", "a1", "--wiki", str(tmp_path)])
     assert result.exit_code == 0
     mock_orch.queue.retry.assert_called_once_with("a1")
 
 
 def test_jobs_purge_older_than(tmp_path):
     """jobs purge --older-than 30 removes stale jobs."""
-    with patch("synthadoc.cli.jobs.Orchestrator") as MockOrch:
+    with patch("synthadoc.core.orchestrator.Orchestrator") as MockOrch:
         mock_orch = AsyncMock()
-        mock_orch.queue = AsyncMock()
         mock_orch.queue.purge = AsyncMock(return_value=5)
         MockOrch.return_value = mock_orch
-        result = runner.invoke(app, ["jobs", "purge", "--older-than", "30"])
+        result = runner.invoke(app, ["jobs", "purge", "--older-than", "30",
+                                     "--wiki", str(tmp_path)])
     assert result.exit_code == 0
     mock_orch.queue.purge.assert_called_once_with(older_than_days=30)
 
