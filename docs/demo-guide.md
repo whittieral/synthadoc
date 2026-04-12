@@ -121,6 +121,8 @@ Dataview is required for the live dashboard in `wiki/dashboard.md`.
 The plugin is pre-built (`obsidian-plugin/main.js`) — no build step needed unless you
 modify the TypeScript source.
 
+First, change into the `obsidian-plugin/` folder inside your cloned synthadoc repository, then run:
+
 **Windows (cmd.exe):**
 ```cmd
 mkdir "%USERPROFILE%\wikis\history-of-computing\.obsidian\plugins\synthadoc"
@@ -128,13 +130,11 @@ copy main.js "%USERPROFILE%\wikis\history-of-computing\.obsidian\plugins\synthad
 copy manifest.json "%USERPROFILE%\wikis\history-of-computing\.obsidian\plugins\synthadoc\"
 ```
 
-> Run these commands from inside the `obsidian-plugin\` folder.
-
 **Linux / macOS:**
 ```bash
 vault=~/wikis/history-of-computing
 mkdir -p "$vault/.obsidian/plugins/synthadoc"
-cp obsidian-plugin/main.js obsidian-plugin/manifest.json "$vault/.obsidian/plugins/synthadoc/"
+cp main.js manifest.json "$vault/.obsidian/plugins/synthadoc/"
 ```
 
 ---
