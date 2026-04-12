@@ -446,9 +446,6 @@ synthadoc lint run -w my-wiki
 # Only contradictions
 synthadoc lint run --scope contradictions -w my-wiki
 
-# Only since a date
-synthadoc lint run --since 2026-01-01 -w my-wiki
-
 # Auto-apply high-confidence resolutions
 synthadoc lint run --auto-resolve -w my-wiki
 
