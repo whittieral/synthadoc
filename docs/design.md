@@ -797,51 +797,55 @@ cron = "0 3 * * 0"
 
 ## 12. Hook System
 
-Hooks are shell commands executed when lifecycle events fire. They receive a JSON context on stdin.
+Hooks are shell commands executed when lifecycle events fire. They are configured in `.synthadoc/config.toml` under `[hooks]` and receive a JSON context object on stdin.
 
-### Events
+### Configuration
 
-| Event | Fires when |
-|-------|-----------|
-| `on_ingest_complete` | A source is successfully ingested |
-| `on_ingest_failed` | An ingest job fails (before retry) |
-| `on_contradiction_found` | A contradiction detected during ingest |
-| `on_lint_complete` | A lint run finishes |
-| `on_query_saved` | A query answer is saved as a wiki page |
-| `on_batch_complete` | A full batch ingest completes |
-| `on_cost_warning` | Estimated cost crosses `soft_warn_usd` |
-| `on_dead_job` | A job exhausts retries |
+```toml
+# .synthadoc/config.toml
 
-### Hook locations
-
-1. `<wiki-root>/hooks/` — wiki-specific; both run when same event defined in both locations
-2. `~/.synthadoc/hooks/` — global
+[hooks]
+on_ingest_complete = "python scripts/auto_commit.py"                        # non-blocking
+on_lint_complete   = { cmd = "python scripts/notify.py", blocking = true }  # blocking
+```
 
 ### Blocking vs. non-blocking
 
-```toml
-on_ingest_complete     = "python hooks/auto_commit.py"           # non-blocking
-on_contradiction_found = { cmd = "python hooks/alert.py", blocking = true }  # blocking
-```
+- **Non-blocking** (default): runs in a background thread; failures are logged but do not affect the operation.
+- **Blocking**: must exit `0` for the operation to succeed; a non-zero exit code raises an error and surfaces it to the caller.
 
-Non-blocking: runs in background thread; failures logged but ignored.  
-Blocking: must exit 0 for the operation to complete; non-zero causes operation failure.
+### Events
 
-### Context JSON (on stdin)
+Two events are fired in v0.1:
 
+| Event | Fires when | Context fields |
+|-------|-----------|----------------|
+| `on_ingest_complete` | A source is successfully ingested | `event`, `wiki`, `source`, `pages_created`, `pages_updated`, `pages_flagged`, `tokens_used`, `cost_usd` |
+| `on_lint_complete` | A lint run finishes | `event`, `wiki`, `contradictions_found`, `orphans` |
+
+### Context JSON examples
+
+**on_ingest_complete**
 ```json
 {
   "event": "on_ingest_complete",
-  "wiki": "my-wiki",
-  "wiki_root": "/home/user/wikis/my-wiki",
+  "wiki": "/home/user/wikis/my-wiki",
   "source": "report.pdf",
   "pages_created": ["alan-turing"],
   "pages_updated": ["computing-history"],
   "pages_flagged": [],
   "tokens_used": 4820,
-  "cost_usd": 0.031,
-  "cache_hits": 3,
-  "timestamp": "2026-04-10T14:32:00Z"
+  "cost_usd": 0.031
+}
+```
+
+**on_lint_complete**
+```json
+{
+  "event": "on_lint_complete",
+  "wiki": "/home/user/wikis/my-wiki",
+  "contradictions_found": 2,
+  "orphans": ["stub-page", "draft-notes"]
 }
 ```
 
