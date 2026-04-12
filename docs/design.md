@@ -591,11 +591,20 @@ synthadoc
 
 ### `ingest --analyse-only`
 
-Runs the analysis step only (entity extraction + tagging + summary) and prints the JSON result without writing any wiki pages. Useful for previewing how a source will be interpreted before committing it to the wiki:
+Runs the analysis step only (entity extraction + tagging + summary) and prints the JSON result without writing any wiki pages. Useful for previewing how a source will be interpreted before committing it to the wiki.
+
+`--analyse-only` works with all three ingest modes — single source, `--batch`, and `--file` manifest. Each source is analysed in turn and its result printed as JSON:
 
 ```bash
+# Single file
 synthadoc ingest report.pdf --analyse-only -w my-wiki
 # → {"entities": ["Alan Turing", "Enigma"], "tags": ["cryptography"], "summary": "…"}
+
+# Whole folder — analyses every supported file, no pages written
+synthadoc ingest --batch raw_sources/ --analyse-only -w my-wiki
+
+# Manifest — analyses each line in the file
+synthadoc ingest --file sources.txt --analyse-only -w my-wiki
 ```
 
 ### `audit` sub-commands
