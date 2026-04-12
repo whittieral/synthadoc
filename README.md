@@ -87,7 +87,7 @@ Every page is a plain Markdown file with YAML frontmatter. No proprietary format
 | Value | How |
 |-------|-----|
 | **Faster onboarding** | New team members query the wiki instead of digging through documents |
-| **Audit trail** | Every ingest recorded in `audit.db` with source hash, cost, and timestamp |
+| **Audit trail** | Every ingest recorded in `audit.db` with source hash, token count, and timestamp |
 | **Cost control** | Configurable soft-warn and hard-gate thresholds; 3-layer cache reduces repeat spend |
 | **Compliance** | Local-first — source documents and compiled knowledge never leave your machine |
 | **Extensibility** | Hooks fire on every event; custom skills load without a server restart |
@@ -485,10 +485,11 @@ synthadoc ingest report.pdf --analyse-only -w my-wiki
 ### Audit trail
 
 ```bash
-# Last 20 ingest records (source, pages, tokens, cost)
+# Last 20 ingest records (source, pages, tokens)
 synthadoc audit history -w my-wiki
 
-# Token spend + cost for last 30 days (or --days N)
+# Token usage summary for last 30 days (or --days N)
+# Note: cost column is always $0.00 — per-model pricing not yet implemented
 synthadoc audit cost -w my-wiki
 
 # Audit events: contradictions found, auto-resolutions, cost gate triggers
@@ -573,7 +574,7 @@ tail -f .synthadoc/logs/synthadoc.log | jq 'select(.job_id == "abc123")'
 ```bash
 # Ingest history (no sqlite3 needed)
 synthadoc audit history -w my-wiki          # last 20 records
-synthadoc audit cost -w my-wiki             # spend summary, last 30 days
+synthadoc audit cost -w my-wiki             # token usage summary, last 30 days (cost always $0.00 — pricing not yet implemented)
 synthadoc audit cost --days 7 -w my-wiki    # weekly view
 synthadoc audit events -w my-wiki           # contradictions, resolutions, cost gates
 
