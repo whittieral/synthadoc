@@ -221,7 +221,7 @@ Runs against the entire wiki or a scoped subset:
 
 Dispatches to the correct skill based on file extension, URL prefix, or intent keyword match. Manages 3-tier lazy loading. Returns `ExtractedContent` to IngestAgent.
 
-URL and intent-based sources (e.g. `search for: Dennis Ritchie…`) bypass all file-system existence checks in IngestAgent. Only local-file sources are checked for path validity and hashed for dedup.
+When a source is a URL or an intent phrase (e.g. `search for: Dennis Ritchie`), IngestAgent skips the local file checks — there is no file to verify or hash. File-existence validation and SHA-256 dedup only apply to local file paths.
 
 ---
 
