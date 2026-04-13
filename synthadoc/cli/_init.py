@@ -99,6 +99,7 @@ FROM "wiki"
 WHERE length(file.inlinks) = 0
 AND file.name != "index"
 AND file.name != "dashboard"
+AND file.name != "purpose"
 SORT created DESC
 ```
 
@@ -112,7 +113,7 @@ Add `[[page-name]]` to a related page or to [[index]].*
 ```dataview
 TABLE status, confidence
 FROM "wiki"
-WHERE file.name != "index" AND file.name != "dashboard"
+WHERE file.name != "index" AND file.name != "dashboard" AND file.name != "purpose"
 SORT created DESC
 LIMIT 10
 ```
