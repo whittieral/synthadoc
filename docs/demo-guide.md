@@ -95,8 +95,19 @@ Expected output:
 
 ```
 Wiki 'history-of-computing' installed at ...
-Open .../history-of-computing/ as an Obsidian vault — pages are in .../history-of-computing/wiki/
+  Port   7070
+  Pages  .../history-of-computing/wiki/
+Start:   synthadoc serve -w history-of-computing
 ```
+
+> **Port conflict:** If port 7070 is already in use (e.g. another wiki is running),
+> the installer will prompt you to confirm an alternative port. You can also specify
+> a port explicitly: `synthadoc install history-of-computing --target ~/wikis --demo --port 7071`.
+
+> **No API key needed to explore the demo.** The demo wiki ships with 10 pre-built pages
+> — you can browse them in Obsidian, run queries, and explore Graph view without any LLM
+> API key. An API key is only required for ingesting new sources or running lint.
+> Web search (Step 10) additionally requires `TAVILY_API_KEY`.
 
 ---
 

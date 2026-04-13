@@ -354,15 +354,32 @@ Full config reference: [docs/design.md — Configuration](docs/design.md#configu
 ### Setting up a wiki
 
 ```bash
-# Create a new empty wiki
-synthadoc install my-wiki --target ~/wikis/my-wiki
+# Create a new empty wiki (LLM scaffold runs automatically if API key is set)
+synthadoc install my-wiki --target ~/wikis --domain "Machine Learning"
 
-# Install the demo (includes pre-built pages and raw sources)
-synthadoc install history-of-computing --target ~/wikis/history-of-computing --demo
+# Create a wiki on a specific port (useful when running multiple wikis)
+synthadoc install my-wiki --target ~/wikis --domain "Machine Learning" --port 7071
+
+# Install the demo (includes pre-built pages and raw sources — no LLM call needed)
+synthadoc install history-of-computing --target ~/wikis --demo
 
 # List available demo templates
 synthadoc demo list
 ```
+
+### Refreshing wiki scaffold
+
+After install, you can re-run the LLM scaffold at any time to regenerate domain-specific content (index categories, AGENTS.md guidelines, purpose.md scope). Pages already linked in `index.md` are protected and preserved.
+
+```bash
+# Regenerate scaffold for an existing wiki
+synthadoc scaffold -w my-wiki
+
+# Schedule weekly refresh (runs every Sunday at 4 AM)
+synthadoc schedule add --op "scaffold" --cron "0 4 * * 0" -w my-wiki
+```
+
+`config.toml` and `dashboard.md` are never modified by `scaffold`.
 
 ### Running the server
 
