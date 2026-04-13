@@ -70,9 +70,12 @@ class Orchestrator:
                 cache_version=self._cfg.cache.version,
             )
             result = await agent.ingest(source, force=force, bust_cache=force)
-            # Fan out web search child sources as individual ingest jobs
-            for child_source in result.child_sources:
-                await self._queue.enqueue("ingest", {"source": child_source, "force": False})
+            # Fan out web search child sources — batch insert in one transaction
+            if result.child_sources:
+                await self._queue.enqueue_many(
+                    "ingest",
+                    [{"source": s, "force": False} for s in result.child_sources],
+                )
 
             await self._queue.complete(job_id, result={
                 "pages_created": result.pages_created,

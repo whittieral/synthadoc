@@ -67,6 +67,17 @@ class JobQueue:
             await db.commit()
         return job_id
 
+    async def enqueue_many(self, operation: str, payloads: list[dict]) -> list[str]:
+        """Enqueue multiple jobs in a single connection and transaction."""
+        job_ids = [str(uuid.uuid4())[:8] for _ in payloads]
+        async with aiosqlite.connect(self._path) as db:
+            await db.executemany(
+                "INSERT INTO jobs (id,operation,payload,status) VALUES (?,?,?,'pending')",
+                [(jid, operation, json.dumps(p)) for jid, p in zip(job_ids, payloads)],
+            )
+            await db.commit()
+        return job_ids
+
     async def dequeue(self) -> Optional[Job]:
         async with self._lock:
             async with aiosqlite.connect(self._path) as db:
