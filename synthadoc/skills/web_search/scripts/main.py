@@ -28,6 +28,8 @@ _BLOCKED_DOMAINS = {
     "x.com",
     "linkedin.com",
     "tiktok.com",
+    # Wikipedia blocks plain HTTP clients even with a browser User-Agent
+    "wikipedia.org",
     # Require institutional/subscription access
     "ieeexplore.ieee.org",
     "dl.acm.org",
