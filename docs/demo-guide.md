@@ -283,7 +283,7 @@ HTTP API running on http://127.0.0.1:7070
 
 ![synthadoc serve startup](synthadoc-serve.png)
 
-The banner confirms the mode (`HTTP + MCP`), port, wiki path, and PID. If you see
+The banner confirms the port, wiki path, and PID. If you see
 `Warning: TAVILY_API_KEY is not set`, web search jobs will not work — set the key
 before Step 10 if you plan to use that feature.
 
@@ -478,8 +478,6 @@ synthadoc jobs status <job-id> -w history-of-computing
 
 The LLM proposes a resolution, appends it as a `**Resolution:**` block, and sets
 `status: active`. Review the result in Obsidian and edit if needed.
-
-> **Option 3 — Via Claude (MCP):** see Step 11 for MCP setup and a full example.
 
 ---
 
@@ -729,147 +727,7 @@ These three commands replace the need to run raw `sqlite3` queries and are safe 
 
 ---
 
-### Step 12 — Control Synthadoc from Claude (MCP)
-
-Synthadoc exposes an MCP server so Claude Desktop (or any MCP-capable Claude surface) can drive
-the wiki in natural language — no CLI required.
-
-#### Set up
-
-**1. Start the server in MCP mode** (same process, adds MCP transport):
-
-```
-synthadoc serve -w history-of-computing
-```
-
-The standard `serve` command runs both the HTTP API (for the Obsidian plugin) and the MCP server
-simultaneously. Leave this terminal running.
-
-**2. Register in Claude Desktop config**
-
-Locate your config file:
-
-
-| Platform                 | Path                                                                                                |
-| ------------------------ | --------------------------------------------------------------------------------------------------- |
-| Windows (Store app)      | `%LOCALAPPDATA%\Packages\Claude_pzs8sxrjxfjjc\LocalCache\Roaming\Claude\claude_desktop_config.json` |
-| Windows (direct install) | `%APPDATA%\Claude\claude_desktop_config.json`                                                       |
-| macOS                    | `~/Library/Application Support/Claude/claude_desktop_config.json`                                   |
-
-Add the following entry, replacing the wiki path with the **absolute path** to your wiki root:
-
-```json
-{
-  "mcpServers": {
-    "synthadoc-history": {
-      "command": "synthadoc",
-      "args": ["serve", "--wiki", "C:\\Users\\you\\wikis\\history-of-computing", "--mcp-only"]
-    }
-  }
-}
-```
-
-> **Important:** Use an absolute path for `--wiki`. Relative paths will not resolve because
-> Claude Desktop has no working directory context.
-
-> **Windows PATH note:** Claude Desktop may not inherit your user PATH. If the server fails
-> to start, add the Python Scripts folder (e.g.
-> `C:\Users\you\AppData\Roaming\Python\Python3xx\Scripts`) to your **system** PATH
-> (not user PATH), then restart Claude Desktop fully from the system tray.
-
-`--mcp-only` starts just the MCP transport without the HTTP API — use this when you only need
-Claude access and not the Obsidian plugin. Omit it (use plain `serve`) when running both.
-
-**3. Restart Claude Desktop**
-
-Fully quit from the system tray (right-click → Quit) and relaunch. Open
-Settings → Local MCP servers — `synthadoc-history` should show a green **running** badge.
-You should see six tools: `synthadoc_ingest`, `synthadoc_query`, `synthadoc_lint`,
-`synthadoc_search`, `synthadoc_status`, `synthadoc_job_status`.
-
----
-
-#### Use case A — Resolve the grace-hopper contradiction
-
-After Step 5, `wiki/grace-hopper.md` has `status: contradicted`. Instead of editing it manually,
-ask Claude:
-
-> *"Open my history-of-computing wiki and resolve the contradiction on the grace-hopper page."*
-
-Claude will:
-
-1. Call `synthadoc_lint(scope="contradictions")` to surface the conflict
-2. Call `synthadoc_query("What does the first-compiler-controversy PDF argue about Grace Hopper?")` to
-   understand both sides
-3. Propose a nuanced resolution (Hopper pioneered automated code generation with A-0;
-   FORTRAN 1957 was the first production compiler)
-4. Apply it via `synthadoc_ingest` or direct file edit + status change
-
-Review the result in Obsidian — the Properties panel should show `status: active`.
-
----
-
-#### Use case B — Ingest a web page
-
-Tell Claude:
-
-> *"Ingest this Wikipedia article into my history-of-computing wiki: https://en.wikipedia.org/wiki/ENIAC"*
-
-Claude calls `synthadoc_ingest(source="https://en.wikipedia.org/wiki/ENIAC")`, then polls
-`synthadoc_job_status(job_id)` until the job completes. The new `eniac` page appears in
-Obsidian automatically.
-
----
-
-#### Use case C — Find gaps in your wiki coverage
-
-Ask Claude:
-
-> *"What topics are missing or underdeveloped in my history-of-computing wiki?"*
-
-Claude calls `synthadoc_status()` for page count, then `synthadoc_search(terms=["coverage", "missing"])`,
-reads `wiki/index.md`, and cross-references what is linked vs. what is referenced in the sources.
-
----
-
-#### Use case D — Locate and fix orphan pages
-
-After Step 6, `quantum-computing` is an orphan. Tell Claude:
-
-> *"Check my history-of-computing wiki for orphan pages and suggest where to link them."*
-
-Claude calls `synthadoc_lint(scope="orphans")`, reads the orphan list, reads related pages
-(e.g. `artificial-intelligence-history.md`), and proposes a sentence to add — or edits it directly
-if the Obsidian Claude plugin is active.
-
----
-
-#### Use case E — Expand the wiki via web search
-
-After reviewing the wiki, tell Claude:
-
-> *"My history-of-computing wiki doesn't cover Dennis Ritchie or the C language. Search the web
-> and add pages for both."*
-
-Claude will:
-
-1. Call `synthadoc_ingest(source="search for: Dennis Ritchie C programming language Bell Labs history")` — intent phrase routes to `web_search`
-2. Call `synthadoc_ingest(source="search for: history of C programming language UNIX influence")` for supplementary context
-3. Poll `synthadoc_job_status(job_id)` for each job
-4. Call `synthadoc_query("What is the relationship between C, Unix, and Bell Labs?")` to verify the new pages are queryable
-5. Report the new pages created and suggest `[[wikilinks]]` to add in related pages such as `unix-history` and `programming-languages-overview`
-
-You can also drive multi-topic research in one prompt:
-
-> *"Search the web for the top 5 computing pioneers not yet in my wiki and add a page for each."*
-
-Claude reads `wiki/index.md` to find what is already covered, builds a list of gaps, then
-fires one `synthadoc_ingest` per topic using `search for:` intent strings, and links each
-new page back into `index.md`.
-
----
-
-### Step 13 — Hook: auto-commit wiki to git
+### Step 12 — Hook: auto-commit wiki to git
 
 Hooks let you trigger shell scripts on lifecycle events. This step wires up
 `git-auto-commit.py` so every successful ingest produces a git commit
