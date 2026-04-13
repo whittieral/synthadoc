@@ -98,10 +98,13 @@ def _spawn_background(wiki_root: Path, effective_port: int, log_path: Path) -> N
         env=env,
     )
     if sys.platform == "win32":
-        # Keep the child alive after the parent exits on Windows.
-        DETACHED_PROCESS = 0x00000008
-        CREATE_NEW_PROCESS_GROUP = 0x00000200
-        popen_kwargs["creationflags"] = DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
+        # CREATE_NO_WINDOW: child gets no console — it won't keep the parent's
+        # console window locked after the parent exits.
+        # CREATE_NEW_PROCESS_GROUP: child gets its own signal group so Ctrl-C
+        # in the parent terminal doesn't propagate to the server.
+        popen_kwargs["creationflags"] = (
+            subprocess.CREATE_NO_WINDOW | subprocess.CREATE_NEW_PROCESS_GROUP
+        )
     else:
         popen_kwargs["start_new_session"] = True
 
